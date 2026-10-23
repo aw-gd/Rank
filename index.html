@@ -156,73 +156,45 @@
         }
 
         // ==========================================
-        // 3. AUTO-FETCH IMAGES FROM GITHUB API
+        // 3. AUTO-FETCH IMAGES FROM YOUR GITHUB
         // ==========================================
-        // REPLACE 'yourusername' and 'Rank' with your actual GitHub details!
         const githubUser = "aw-gd"; 
         const githubRepo = "Rank";
         
         async function fetchImagesFromGitHub() {
             try {
-                // Fetch the list of files in the 'images' folder
-                const response = await fetch(`https://api.github.com/repos/${githubUser}/${githubRepo}/contents/images`);
+                // Fetch the list of files in the ROOT of the repository
+                const response = await fetch(`https://api.github.com/repos/${githubUser}/${githubRepo}/contents/`);
                 
                 if (!response.ok) throw new Error("Failed to fetch");
                 
                 const files = await response.json();
                 
-                // Filter only .jpg and .webp files (ignoring names)
+                // Filter ONLY .jpg and .webp files
                 const validImages = files.filter(file => 
                     file.name.toLowerCase().endsWith('.jpg') || 
                     file.name.toLowerCase().endsWith('.webp')
                 );
 
                 if (validImages.length === 0) {
-                    pool.innerHTML = '<div class="debug-msg">⚠️ No .jpg or .webp images found in the GitHub /images folder.</div>';
+                    pool.innerHTML = '<div class="debug-msg">⚠️ No .jpg or .webp images found.</div>';
                     return;
                 }
 
                 // Create the images
                 validImages.forEach(file => {
-                    // file.download_url gives the direct link to the raw image
+                    // Use download_url to get the raw image file
                     createImage(file.download_url);
                 });
 
             } catch (error) {
                 console.error("Error loading from GitHub:", error);
-                pool.innerHTML = '<div class="debug-msg">⚠️ Could not load images from GitHub. Check your username and repo name in the code. (If testing locally, remember to upload to GitHub first!)</div>';
-                
-                // Fallback for local testing (looks for 1.jpg, 1.webp, etc.)
-                localFallback();
+                pool.innerHTML = '<div class="debug-msg">⚠️ Could not load images from GitHub. Make sure GitHub Pages is active and wait a minute.</div>';
             }
         }
 
         // ==========================================
-        // 4. Local Fallback (Only used if GitHub fails)
-        // ==========================================
-        function localFallback() {
-            let currentNumber = 1;
-            let foundImages = 0;
-            
-            function loadNext() {
-                const img = new Image();
-                img.src = `images/${currentNumber}.jpg`;
-                img.onload = function() { createImage(img.src); foundImages++; currentNumber++; loadNext(); };
-                img.onerror = function() {
-                    img.src = `images/${currentNumber}.webp`;
-                    img.onload = function() { createImage(img.src); foundImages++; currentNumber++; loadNext(); };
-                    img.onerror = function() {
-                        if (foundImages === 0) {
-                            pool.innerHTML = '<div class="debug-msg">⚠️ No images found. Ensure you have uploaded them to GitHub.</div>';
-                        }
-                    };
-                };
-            }
-            loadNext();
-        }
-
-        // ==========================================
-        // 5. Screenshot Logic
+        // 4. Screenshot Logic
         // ==========================================
         document.getElementById('shareBtn').addEventListener('click', async () => {
             if (typeof html2canvas === 'undefined') {
