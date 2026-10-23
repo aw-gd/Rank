@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RANK</title>
+    <title>图片强度排行榜</title>
     
     <!-- html2canvas for the screenshot -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -155,39 +155,45 @@
         }
 
         // ==========================================
-        // 3. FETCH FROM YOUR EXACT GITHUB URL
+        // 3. DIRECT IMAGE LOADING (Bypasses GitHub API Limits)
         // ==========================================
-        // Using the direct raw URL for your exact setup
-        const rawBaseUrl = "https://raw.githubusercontent.com/aw-gd/Rank/main/";
-        
-        async function fetchImagesFromGitHub() {
-            try {
-                const response = await fetch(`https://api.github.com/repos/aw-gd/Rank/contents/`);
-                if (!response.ok) throw new Error("API failed");
+        // We will load 1.webp, 2.webp, 3.webp... directly from your repo
+        const baseUrl = "https://raw.githubusercontent.com/aw-gd/Rank/main/";
+        let currentNumber = 1;
+        let foundCount = 0;
+
+        function loadNextImage() {
+            const img = new Image();
+            
+            // Try to load the .webp file first (since your screenshot showed .webp)
+            img.src = `${baseUrl}${currentNumber}.webp`;
+            
+            img.onload = function() {
+                // If successful, add to pool
+                createImage(img.src);
+                foundCount++;
+                currentNumber++;
+                loadNextImage(); // Try the next number
+            };
+
+            img.onerror = function() {
+                // If .webp fails, try .jpg just in case
+                img.src = `${baseUrl}${currentNumber}.jpg`;
                 
-                const files = await response.json();
+                img.onload = function() {
+                    createImage(img.src);
+                    foundCount++;
+                    currentNumber++;
+                    loadNextImage();
+                };
                 
-                // Filter ONLY .jpg and .webp files
-                const validImages = files.filter(file => 
-                    file.name.toLowerCase().endsWith('.jpg') || 
-                    file.name.toLowerCase().endsWith('.webp')
-                );
-
-                if (validImages.length === 0) {
-                    pool.innerHTML = '<div class="debug-msg">⚠️ No .jpg or .webp images found in the repo.</div>';
-                    return;
-                }
-
-                // Create the images using the exact raw URL
-                validImages.forEach(file => {
-                    const imageUrl = rawBaseUrl + file.name;
-                    createImage(imageUrl);
-                });
-
-            } catch (error) {
-                console.error("API Error:", error);
-                pool.innerHTML = '<div class="debug-msg">⚠️ GitHub API Error. If you just uploaded, wait 2 minutes and refresh.</div>';
-            }
+                img.onerror = function() {
+                    // If BOTH fail, it means we reached the end of the numbered images
+                    if (foundCount === 0) {
+                        pool.innerHTML = '<div class="debug-msg">⚠️ Could not find 1.webp or 1.jpg. Make sure they are in the root folder and named exactly "1.webp".</div>';
+                    }
+                };
+            };
         }
 
         // ==========================================
@@ -227,7 +233,7 @@
 
         // Start
         window.onload = () => {
-            fetchImagesFromGitHub();
+            loadNextImage();
         };
     </script>
 </body>
