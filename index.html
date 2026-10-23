@@ -4,20 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>图片强度排行榜</title>
-    
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
         body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; padding: 10px; display: flex; flex-direction: column; align-items: center; }
-        
         .header-bar { width: 100%; max-width: 900px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 5px; }
         h1 { font-size: 20px; color: #333; }
-        
-        .btn-group { display: flex; gap: 10px; }
         .share-btn { background-color: #1e88e5; color: white; border: none; padding: 10px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer; }
-        .debug-btn { background-color: #ff9800; color: white; border: none; padding: 10px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer; }
-
+        
         .tier-container { display: flex; flex-direction: column; width: 100%; max-width: 900px; background-color: #b0b0b0; border: 2px solid #333; border-radius: 8px; overflow: hidden; }
         .tier-row { display: flex; min-height: 60px; border-bottom: 2px solid #333; }
         .tier-row:last-child { border-bottom: none; }
@@ -42,18 +37,14 @@
             min-height: 20px;
         }
         .drag-item:active { cursor: grabbing; opacity: 0.8; }
-        
-        .debug-msg { color: red; font-weight: bold; padding: 10px; width: 100%; background: white; border: 1px solid red; margin-bottom: 10px; }
+        .debug-msg { color: red; font-weight: bold; padding: 10px; width: 100%; background: white; border: 1px solid red; }
     </style>
 </head>
 <body>
 
     <div class="header-bar">
         <h1>图片强度排行榜</h1>
-        <div class="btn-group">
-            <button class="debug-btn" onclick="testImageUrl()">Test Image Link</button>
-            <button class="share-btn" id="shareBtn">📸 分享截图</button>
-        </div>
+        <button class="share-btn" id="shareBtn">📸 分享截图</button>
     </div>
 
     <div id="captureArea" style="background-color: #f0f2f5; padding: 10px; border-radius: 8px; width: 100%; display: flex; flex-direction: column; align-items: center;">
@@ -72,7 +63,6 @@
         const dropzones = document.querySelectorAll('.tier-dropzone, .pool-container');
         let draggedItem = null;
 
-        // Drag & Drop Logic
         function makeDraggable(item) {
             item.addEventListener('dragstart', (e) => {
                 draggedItem = item;
@@ -93,8 +83,7 @@
                 const touch = e.touches[0];
                 const target = document.elementFromPoint(touch.clientX, touch.clientY);
                 if (target && target.closest('.tier-dropzone, .pool-container')) {
-                    const zone = target.closest('.tier-dropzone, .pool-container');
-                    zone.style.backgroundColor = '#e6f7ff';
+                    target.closest('.tier-dropzone, .pool-container').style.backgroundColor = '#e6f7ff';
                 }
             }, { passive: false });
             item.addEventListener('touchend', (e) => {
@@ -103,8 +92,7 @@
                 const target = document.elementFromPoint(touch.clientX, touch.clientY);
                 dropzones.forEach(z => z.style.backgroundColor = '');
                 if (target && target.closest('.tier-dropzone, .pool-container')) {
-                    const zone = target.closest('.tier-dropzone, .pool-container');
-                    zone.appendChild(draggedItem);
+                    target.closest('.tier-dropzone, .pool-container').appendChild(draggedItem);
                 }
                 draggedItem = null;
             });
@@ -113,14 +101,9 @@
         dropzones.forEach(zone => {
             zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.style.backgroundColor = '#e6f7ff'; });
             zone.addEventListener('dragleave', () => { zone.style.backgroundColor = ''; });
-            zone.addEventListener('drop', (e) => {
-                e.preventDefault();
-                zone.style.backgroundColor = '';
-                if (draggedItem) zone.appendChild(draggedItem);
-            });
+            zone.addEventListener('drop', (e) => { e.preventDefault(); zone.style.backgroundColor = ''; if (draggedItem) zone.appendChild(draggedItem); });
         });
 
-        // Image Loading
         function createImage(src) {
             const img = document.createElement('img');
             img.classList.add('drag-item');
@@ -134,14 +117,16 @@
             pool.appendChild(img);
         }
 
-        // ⚠️ CHECK THIS URL: If your branch is 'master', change 'main' to 'master'
-        const baseUrl = "https://raw.githubusercontent.com/aw-gd/Rank/main/";
+        // 🚨 NEW URL LOGIC 🚨
+        // We are appending ?v=2 to force the browser to bypass the cache and download fresh files
+        const baseUrl = "https://aw-gd.github.io/Rank/";
         let currentNumber = 1;
         let foundCount = 0;
 
         function loadNextImage() {
             const img = new Image();
-            img.src = `${baseUrl}${currentNumber}.webp`;
+            // Added ?v=2 here
+            img.src = `${baseUrl}${currentNumber}.webp?v=2`;
             
             img.onload = function() {
                 createImage(img.src);
@@ -150,7 +135,8 @@
                 loadNextImage(); 
             };
             img.onerror = function() {
-                img.src = `${baseUrl}${currentNumber}.jpg`;
+                // Try jpg if webp fails
+                img.src = `${baseUrl}${currentNumber}.jpg?v=2`;
                 img.onload = function() {
                     createImage(img.src);
                     foundCount++;
@@ -159,22 +145,19 @@
                 };
                 img.onerror = function() {
                     if (foundCount === 0) {
-                        pool.innerHTML = '<div class="debug-msg">⚠️ Failed to load 1.webp or 1.jpg. Click "Test Image Link" above to see the error.</div>';
+                        // Show the exact URL it tried to load to help you debug
+                        const testUrl = `${baseUrl}1.webp?v=2`;
+                        pool.innerHTML = `<div class="debug-msg">
+                            ⚠️ Could not load images.<br><br>
+                            <b>1.</b> Make sure the file is named exactly <b>1.webp</b> (all lowercase).<br>
+                            <b>2.</b> Try opening this link in a new tab to see if it works:<br>
+                            <a href="${testUrl}" target="_blank">${testUrl}</a>
+                        </div>`;
                     }
                 };
             };
         }
 
-        // 🚨 DEBUG FUNCTION
-        function testImageUrl() {
-            const url = `${baseUrl}1.webp`;
-            const win = window.open(url, '_blank');
-            if (!win) {
-                alert("Pop-up blocked. Please allow pop-ups to test the link. The link is:\n\n" + url);
-            }
-        }
-
-        // Screenshot
         document.getElementById('shareBtn').addEventListener('click', async () => {
             const btn = document.getElementById('shareBtn');
             btn.innerText = 'Processing...';
