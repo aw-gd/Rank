@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>图片强度排行榜</title>
     
-    <!-- html2canvas for the screenshot -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
     <style>
@@ -15,14 +14,13 @@
         .header-bar { width: 100%; max-width: 900px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 5px; }
         h1 { font-size: 20px; color: #333; }
         
-        .share-btn { background-color: #1e88e5; color: white; border: none; padding: 10px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .share-btn:active { background-color: #1565c0; }
+        .btn-group { display: flex; gap: 10px; }
+        .share-btn { background-color: #1e88e5; color: white; border: none; padding: 10px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .debug-btn { background-color: #ff9800; color: white; border: none; padding: 10px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer; }
 
-        .tier-container { display: flex; flex-direction: column; width: 100%; max-width: 900px; background-color: #b0b0b0; border: 2px solid #333; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-        
+        .tier-container { display: flex; flex-direction: column; width: 100%; max-width: 900px; background-color: #b0b0b0; border: 2px solid #333; border-radius: 8px; overflow: hidden; }
         .tier-row { display: flex; min-height: 60px; border-bottom: 2px solid #333; }
         .tier-row:last-child { border-bottom: none; }
-        
         .tier-label { width: 90px; display: flex; justify-content: center; align-items: center; font-size: 20px; font-weight: bold; color: #000; border-right: 2px solid #333; flex-shrink: 0; text-align: center; padding: 5px; }
         
         .color-hang { background-color: #d32f2f; color: white; }
@@ -45,19 +43,17 @@
         }
         .drag-item:active { cursor: grabbing; opacity: 0.8; }
         
-        .debug-msg { color: red; font-weight: bold; padding: 10px; width: 100%; }
-
-        @media (min-width: 600px) {
-            h1 { font-size: 28px; }
-            .tier-label { width: 120px; font-size: 24px; }
-        }
+        .debug-msg { color: red; font-weight: bold; padding: 10px; width: 100%; background: white; border: 1px solid red; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
     <div class="header-bar">
         <h1>图片强度排行榜</h1>
-        <button class="share-btn" id="shareBtn">📸 分享截图</button>
+        <div class="btn-group">
+            <button class="debug-btn" onclick="testImageUrl()">Test Image Link</button>
+            <button class="share-btn" id="shareBtn">📸 分享截图</button>
+        </div>
     </div>
 
     <div id="captureArea" style="background-color: #f0f2f5; padding: 10px; border-radius: 8px; width: 100%; display: flex; flex-direction: column; align-items: center;">
@@ -76,9 +72,7 @@
         const dropzones = document.querySelectorAll('.tier-dropzone, .pool-container');
         let draggedItem = null;
 
-        // ==========================================
-        // 1. Custom Drag & Drop (Mobile & PC)
-        // ==========================================
+        // Drag & Drop Logic
         function makeDraggable(item) {
             item.addEventListener('dragstart', (e) => {
                 draggedItem = item;
@@ -89,13 +83,11 @@
                 item.style.opacity = '1';
                 draggedItem = null;
             });
-
             item.addEventListener('touchstart', (e) => {
                 draggedItem = item;
                 item.style.opacity = '0.5';
                 e.preventDefault();
             }, { passive: false });
-
             item.addEventListener('touchmove', (e) => {
                 e.preventDefault();
                 const touch = e.touches[0];
@@ -105,14 +97,11 @@
                     zone.style.backgroundColor = '#e6f7ff';
                 }
             }, { passive: false });
-
             item.addEventListener('touchend', (e) => {
                 item.style.opacity = '1';
                 const touch = e.changedTouches[0];
                 const target = document.elementFromPoint(touch.clientX, touch.clientY);
-                
                 dropzones.forEach(z => z.style.backgroundColor = '');
-                
                 if (target && target.closest('.tier-dropzone, .pool-container')) {
                     const zone = target.closest('.tier-dropzone, .pool-container');
                     zone.appendChild(draggedItem);
@@ -122,13 +111,8 @@
         }
 
         dropzones.forEach(zone => {
-            zone.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                zone.style.backgroundColor = '#e6f7ff';
-            });
-            zone.addEventListener('dragleave', () => {
-                zone.style.backgroundColor = '';
-            });
+            zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.style.backgroundColor = '#e6f7ff'; });
+            zone.addEventListener('dragleave', () => { zone.style.backgroundColor = ''; });
             zone.addEventListener('drop', (e) => {
                 e.preventDefault();
                 zone.style.backgroundColor = '';
@@ -136,80 +120,66 @@
             });
         });
 
-        // ==========================================
-        // 2. Scale individual images by 0.5
-        // ==========================================
+        // Image Loading
         function createImage(src) {
             const img = document.createElement('img');
             img.classList.add('drag-item');
             img.draggable = true;
             makeDraggable(img);
-            
             img.onload = function() {
                 this.style.width = (this.naturalWidth * 0.5) + 'px';
                 this.style.height = (this.naturalHeight * 0.5) + 'px';
             };
-            
             img.src = src;
             pool.appendChild(img);
         }
 
-        // ==========================================
-        // 3. DIRECT IMAGE LOADING (Bypasses GitHub API Limits)
-        // ==========================================
-        // We will load 1.webp, 2.webp, 3.webp... directly from your repo
+        // ⚠️ CHECK THIS URL: If your branch is 'master', change 'main' to 'master'
         const baseUrl = "https://raw.githubusercontent.com/aw-gd/Rank/main/";
         let currentNumber = 1;
         let foundCount = 0;
 
         function loadNextImage() {
             const img = new Image();
-            
-            // Try to load the .webp file first (since your screenshot showed .webp)
             img.src = `${baseUrl}${currentNumber}.webp`;
             
             img.onload = function() {
-                // If successful, add to pool
                 createImage(img.src);
                 foundCount++;
                 currentNumber++;
-                loadNextImage(); // Try the next number
+                loadNextImage(); 
             };
-
             img.onerror = function() {
-                // If .webp fails, try .jpg just in case
                 img.src = `${baseUrl}${currentNumber}.jpg`;
-                
                 img.onload = function() {
                     createImage(img.src);
                     foundCount++;
                     currentNumber++;
                     loadNextImage();
                 };
-                
                 img.onerror = function() {
-                    // If BOTH fail, it means we reached the end of the numbered images
                     if (foundCount === 0) {
-                        pool.innerHTML = '<div class="debug-msg">⚠️ Could not find 1.webp or 1.jpg. Make sure they are in the root folder and named exactly "1.webp".</div>';
+                        pool.innerHTML = '<div class="debug-msg">⚠️ Failed to load 1.webp or 1.jpg. Click "Test Image Link" above to see the error.</div>';
                     }
                 };
             };
         }
 
-        // ==========================================
-        // 4. Screenshot Logic
-        // ==========================================
-        document.getElementById('shareBtn').addEventListener('click', async () => {
-            if (typeof html2canvas === 'undefined') {
-                alert("Screenshot library not loaded. Check your internet.");
-                return;
+        // 🚨 DEBUG FUNCTION
+        function testImageUrl() {
+            const url = `${baseUrl}1.webp`;
+            const win = window.open(url, '_blank');
+            if (!win) {
+                alert("Pop-up blocked. Please allow pop-ups to test the link. The link is:\n\n" + url);
             }
+        }
+
+        // Screenshot
+        document.getElementById('shareBtn').addEventListener('click', async () => {
             const btn = document.getElementById('shareBtn');
             btn.innerText = 'Processing...';
             btn.disabled = true;
-
             try {
-                // Using useCORS: true is critical for GitHub raw images
                 const canvas = await html2canvas(document.getElementById('captureArea'), { backgroundColor: '#f0f2f5', scale: 2, useCORS: true });
                 canvas.toBlob(async function(blob) {
                     const file = new File([blob], 'tier.png', { type: 'image/png' });
@@ -231,10 +201,7 @@
             }
         });
 
-        // Start
-        window.onload = () => {
-            loadNextImage();
-        };
+        window.onload = () => { loadNextImage(); };
     </script>
 </body>
 </html>
