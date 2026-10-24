@@ -15,7 +15,6 @@
         
         .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         
-        /* Buttons and Select */
         select, .action-btn {
             padding: 10px;
             border-radius: 8px;
@@ -33,14 +32,32 @@
         .share-btn { background-color: #1e88e5; color: white; border: none; padding: 10px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .share-btn:active { background-color: #1565c0; }
         
-        /* Hide the file input */
         #localFileInput { display: none; }
 
-        /* Tier Layout */
-        .tier-container { display: flex; flex-direction: column; width: 100%; max-width: 900px; background-color: #b0b0b0; border: 2px solid #333; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-        .tier-row { display: flex; min-height: 60px; border-bottom: 2px solid #333; }
+        /* 🚨 Tier Layout (Fixed Heights) 🚨 */
+        .tier-container { 
+            display: flex; 
+            flex-direction: column; 
+            width: 100%; 
+            max-width: 900px; 
+            background-color: #b0b0b0; 
+            border: 2px solid #333; 
+            border-radius: 8px; 
+            overflow: hidden; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+            
+            /* Sticky to top of screen */
+            position: sticky; 
+            top: 0; 
+            z-index: 100;
+            background-color: #f0f2f5; 
+        }
+
+        /* Fixed height for the 5 rows (e.g., 80px) */
+        .tier-row { display: flex; height: 80px; border-bottom: 2px solid #333; }
         .tier-row:last-child { border-bottom: none; }
-        .tier-label { width: 90px; display: flex; justify-content: center; align-items: center; font-size: 20px; font-weight: bold; color: #000; border-right: 2px solid #333; flex-shrink: 0; text-align: center; padding: 5px; }
+        
+        .tier-label { width: 60px; display: flex; justify-content: center; align-items: center; font-size: 16px; font-weight: bold; color: #000; border-right: 2px solid #333; flex-shrink: 0; text-align: center; padding: 5px; }
         
         .color-hang { background-color: #d32f2f; color: white; }
         .color-top { background-color: #e5b968; }
@@ -48,9 +65,38 @@
         .color-npc { background-color: #fdf2d0; }
         .color-pull { background-color: #e0e0e0; }
 
-        .tier-dropzone { flex-grow: 1; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 8px; padding: 8px; background-color: #cfcfcf; min-height: 60px; }
-        .pool-container { margin-top: 15px; width: 100%; max-width: 900px; background-color: #e0e0e0; border: 2px dashed #999; border-radius: 8px; padding: 10px; min-height: 60px; display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; }
+        /* Dropzone layout - allows scrolling left/right if too many images fit in a row */
+        .tier-dropzone { 
+            flex-grow: 1; 
+            display: flex; 
+            flex-wrap: wrap; 
+            align-content: flex-start; 
+            gap: 5px; 
+            padding: 5px; 
+            background-color: #cfcfcf; 
+            overflow-y: auto; 
+            height: 100%;
+        }
+
+        /* Image pool at the bottom - max 45% of screen height */
+        .pool-container { 
+            margin-top: 15px; 
+            width: 100%; 
+            max-width: 900px; 
+            background-color: #e0e0e0; 
+            border: 2px dashed #999; 
+            border-radius: 8px; 
+            padding: 10px; 
+            min-height: 60px; 
+            max-height: 45vh; 
+            overflow-y: auto; 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 8px; 
+            align-content: flex-start; 
+        }
         
+        /* Base image style (JS sets width/height 0.5 initially) */
         .drag-item { 
             border-radius: 6px; 
             background-color: white; 
@@ -63,13 +109,22 @@
         .drag-item:active { cursor: grabbing; opacity: 0.8; }
         .debug-msg { color: red; font-weight: bold; padding: 10px; width: 100%; background: white; border: 1px solid red; margin-bottom: 10px; }
 
-        /* 🚨 ADDED: Phone-specific scaling 🚨 */
+        /* 🚨 PHONE SPECIFIC FIXES 🚨 */
         @media (max-width: 600px) {
-            .drag-item {
-                max-height: 64px !important; /* Caps height at 64px */
-                max-width: 100% !important;  /* Prevents horizontal overflow */
-                width: auto !important;      /* Keeps aspect ratio */
-                object-fit: contain;         /* Ensures whole image is visible */
+            /* In the pool, limit height to 64px */
+            .pool-container .drag-item {
+                max-height: 64px !important; 
+                max-width: 100% !important;  
+                width: auto !important;      
+                object-fit: contain;         
+            }
+
+            /* IN THE RANKING BARS: Force image to shrink to fit the 80px row */
+            .tier-dropzone .drag-item {
+                height: 100% !important;      /* Fill the 80px height (minus padding) */
+                width: auto !important;       /* Keep aspect ratio */
+                max-width: 100% !important;   /* Prevent horizontal overflow */
+                object-fit: contain !important; /* Ensure whole image is visible */
             }
         }
     </style>
@@ -79,14 +134,12 @@
     <div class="header-bar">
         <h1>从夯到拉</h1>
         <div class="controls">
-            <!-- Online Dropdown -->
             <select id="folderSelect">
                 <option value="images1">Group 1 (images1)</option>
                 <option value="images2">Group 2 (images2)</option>
                 <option value="images3">Group 3 (images3)</option>
             </select>
             
-            <!-- Local Button -->
             <button class="action-btn" id="localBtn">📁 Load Local Folder</button>
             <input type="file" id="localFileInput" webkitdirectory directory multiple>
             
@@ -155,13 +208,14 @@
             zone.addEventListener('drop', (e) => { e.preventDefault(); zone.style.backgroundColor = ''; if (draggedItem) zone.appendChild(draggedItem); });
         });
 
-        // 2. Scale Image by 0.5
+        // 2. Scale Image by 0.5 initially
         function createImage(src) {
             const img = document.createElement('img');
             img.classList.add('drag-item');
             img.draggable = true;
             makeDraggable(img);
             img.onload = function() {
+                // This sets the initial size in the pool
                 this.style.width = (this.naturalWidth * 0.5) + 'px';
                 this.style.height = (this.naturalHeight * 0.5) + 'px';
             };
@@ -195,7 +249,7 @@
 
                 pool.innerHTML = ''; 
                 validImages.forEach(file => {
-                    createImage(`${rawBaseUrl}${file.name}?v=6`);
+                    createImage(`${rawBaseUrl}${file.name}?v=7`);
                 });
 
             } catch (error) {
@@ -203,7 +257,7 @@
                 pool.innerHTML = ''; 
                 if (backupList.length > 0) {
                     backupList.forEach(fileName => {
-                        createImage(`${rawBaseUrl}${fileName}?v=6`);
+                        createImage(`${rawBaseUrl}${fileName}?v=7`);
                     });
                 } else {
                     pool.innerHTML = '<div class="debug-msg">⚠️ Could not load images. Make sure the folder exists.</div>';
@@ -229,7 +283,6 @@
 
             Array.from(files).forEach(file => {
                 const ext = file.name.toLowerCase();
-                // Filter for .jpg, .webp, .png, .gif
                 if (ext.endsWith('.jpg') || ext.endsWith('.webp') || ext.endsWith('.png') || ext.endsWith('.gif')) {
                     const reader = new FileReader();
                     reader.onload = (event) => {
@@ -270,7 +323,6 @@
 
         // Start
         window.onload = () => { 
-            // Only auto-load from GitHub if the URL starts with http/https
             if (window.location.protocol.startsWith('http')) {
                 loadOnlineFolder(folderSelect.value); 
             } else {
