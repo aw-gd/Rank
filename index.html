@@ -15,7 +15,7 @@
         
         .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         
-        select, .action-btn {
+        select {
             padding: 10px;
             border-radius: 8px;
             border: 2px solid #ccc;
@@ -26,13 +26,11 @@
             outline: none;
         }
         
-        .action-btn { background-color: #4caf50; color: white; border: none; border-radius: 20px; padding: 10px 15px; }
-        .action-btn:active { background-color: #388e3c; }
-        
         .share-btn { background-color: #1e88e5; color: white; border: none; padding: 10px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .share-btn:active { background-color: #1565c0; }
         
-        #localFileInput { display: none; }
+        .reset-btn { background-color: #f44336; color: white; border: none; padding: 10px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .reset-btn:active { background-color: #d32f2f; }
 
         /* Tier Layout */
         .tier-container { 
@@ -52,7 +50,6 @@
             background-color: #f0f2f5; 
         }
 
-        /* Rows will be very compact now */
         .tier-row { display: flex; min-height: 50px; border-bottom: 2px solid #333; }
         .tier-row:last-child { border-bottom: none; }
         
@@ -93,7 +90,7 @@
             align-content: flex-start; 
         }
         
-        /* 🚨 THE FIX: Strictly set max-height to 40px 🚨 */
+        /* Image Styles */
         .drag-item { 
             max-height: 40px; 
             width: auto;      
@@ -104,8 +101,17 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.2); 
             cursor: grab; 
             touch-action: none; 
+            transition: box-shadow 0.2s, border 0.2s;
         }
         .drag-item:active { cursor: grabbing; opacity: 0.8; }
+
+        /* 🚨 Style for the clicked/selected image 🚨 */
+        .selected-item {
+            box-shadow: 0 0 0 3px #1e88e5 !important;
+            border: 2px solid white !important;
+            transform: scale(1.1);
+            z-index: 10;
+        }
         
         .debug-msg { color: red; font-weight: bold; padding: 10px; width: 100%; background: white; border: 1px solid red; margin-bottom: 10px; }
     </style>
@@ -121,34 +127,70 @@
                 <option value="images3">王者荣耀召唤师技能</option>
             </select>
             
-            //<button class="action-btn" id="localBtn">📁 本地上传文件夹</button>
-            //<input type="file" id="localFileInput" webkitdirectory directory multiple>
-            
+            <button class="reset-btn" id="resetBtn">🔄 重置</button>
             <button class="share-btn" id="shareBtn">📸 分享截图</button>
         </div>
     </div>
 
     <div id="captureArea" style="background-color: #f0f2f5; padding: 10px; border-radius: 8px; width: 100%; display: flex; flex-direction: column; align-items: center;">
         <div class="tier-container">
-            <div class="tier-row"><div class="tier-label color-hang">夯</div><div class="tier-dropzone"></div></div>
-            <div class="tier-row"><div class="tier-label color-top">顶级</div><div class="tier-dropzone"></div></div>
-            <div class="tier-row"><div class="tier-label color-human">人上人</div><div class="tier-dropzone"></div></div>
-            <div class="tier-row"><div class="tier-label color-npc">NPC</div><div class="tier-dropzone"></div></div>
-            <div class="tier-row"><div class="tier-label color-pull">拉完了</div><div class="tier-dropzone"></div></div>
+            <div class="tier-row"><div class="tier-label color-hang">夯</div><div class="tier-dropzone" data-tier="hang"></div></div>
+            <div class="tier-row"><div class="tier-label color-top">顶级</div><div class="tier-dropzone" data-tier="top"></div></div>
+            <div class="tier-row"><div class="tier-label color-human">人上人</div><div class="tier-dropzone" data-tier="human"></div></div>
+            <div class="tier-row"><div class="tier-label color-npc">NPC</div><div class="tier-dropzone" data-tier="npc"></div></div>
+            <div class="tier-row"><div class="tier-label color-pull">拉完了</div><div class="tier-dropzone" data-tier="pull"></div></div>
         </div>
-        <div class="pool-container" id="imagePool"></div>
+        <div class="pool-container" id="imagePool" data-tier="pool"></div>
     </div>
 
     <script>
         const pool = document.getElementById('imagePool');
         const dropzones = document.querySelectorAll('.tier-dropzone, .pool-container');
         const folderSelect = document.getElementById('folderSelect');
-        const localBtn = document.getElementById('localBtn');
-        const localFileInput = document.getElementById('localFileInput');
+        const resetBtn = document.getElementById('resetBtn');
+        
         let draggedItem = null;
+        let selectedItem = null; // For Click to Move
 
-        // 1. Drag & Drop Logic
-        function makeDraggable(item) {
+        // 🚨 1. Save & Load State Logic
+        function saveState() {
+            const state = {};
+            dropzones.forEach(zone => {
+                const tierName = zone.getAttribute('data-tier');
+                const images = Array.from(zone.querySelectorAll('.drag-item')).map(img => img.getAttribute('data-src'));
+                state[tierName] = images;
+            });
+            localStorage.setItem('tierListState', JSON.stringify(state));
+        }
+
+        function loadState() {
+            const savedState = localStorage.getItem('tierListState');
+            if (!savedState) return false;
+
+            try {
+                const state = JSON.parse(savedState);
+                pool.innerHTML = ''; 
+                document.querySelectorAll('.tier-dropzone').forEach(zone => zone.innerHTML = '');
+
+                // Restore images to their saved zones
+                Object.keys(state).forEach(tierName => {
+                    const zone = document.querySelector(`[data-tier="${tierName}"]`);
+                    if (zone) {
+                        state[tierName].forEach(src => {
+                            if (src) createImage(src, zone);
+                        });
+                    }
+                });
+                return true;
+            } catch (e) {
+                console.error("Failed to load state", e);
+                return false;
+            }
+        }
+
+        // 🚨 2. Drag & Drop + Click to Move Logic
+        function makeInteractable(item) {
+            // Drag Events
             item.addEventListener('dragstart', (e) => {
                 draggedItem = item;
                 setTimeout(() => item.style.opacity = '0.5', 0);
@@ -157,6 +199,7 @@
             item.addEventListener('dragend', () => {
                 item.style.opacity = '1';
                 draggedItem = null;
+                saveState(); // Save when drag ends
             });
             item.addEventListener('touchstart', (e) => {
                 draggedItem = item;
@@ -178,25 +221,62 @@
                 dropzones.forEach(z => z.style.backgroundColor = '');
                 if (target && target.closest('.tier-dropzone, .pool-container')) {
                     target.closest('.tier-dropzone, .pool-container').appendChild(draggedItem);
+                    saveState();
                 }
                 draggedItem = null;
             });
+
+            // Click to Move Events
+            item.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent triggering the zone click below
+                if (selectedItem === item) {
+                    // Deselect
+                    item.classList.remove('selected-item');
+                    selectedItem = null;
+                } else {
+                    // Select
+                    if (selectedItem) selectedItem.classList.remove('selected-item');
+                    selectedItem = item;
+                    item.classList.add('selected-item');
+                }
+            });
         }
 
+        // Allow clicking a zone to move the selected image there
         dropzones.forEach(zone => {
             zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.style.backgroundColor = '#e6f7ff'; });
             zone.addEventListener('dragleave', () => { zone.style.backgroundColor = ''; });
-            zone.addEventListener('drop', (e) => { e.preventDefault(); zone.style.backgroundColor = ''; if (draggedItem) zone.appendChild(draggedItem); });
+            zone.addEventListener('drop', (e) => { 
+                e.preventDefault(); 
+                zone.style.backgroundColor = ''; 
+                if (draggedItem) {
+                    zone.appendChild(draggedItem); 
+                    saveState();
+                }
+            });
+
+            // Click Zone Logic
+            zone.addEventListener('click', () => {
+                if (selectedItem) {
+                    zone.appendChild(selectedItem);
+                    selectedItem.classList.remove('selected-item');
+                    selectedItem = null;
+                    saveState();
+                }
+            });
         });
 
-        // 2. Create Image
-        function createImage(src) {
+        // Create Image
+        function createImage(src, targetZone = pool) {
             const img = document.createElement('img');
             img.classList.add('drag-item');
             img.draggable = true;
-            makeDraggable(img);
+            img.setAttribute('data-src', src); // Store src for saving state
+            
+            // Build the image URL
             img.src = src;
-            pool.appendChild(img);
+            makeInteractable(img);
+            targetZone.appendChild(img);
         }
 
         // 3. GitHub Online Logic
@@ -206,6 +286,7 @@
         async function loadOnlineFolder(folderName) {
             pool.innerHTML = '<div style="color: #666; font-weight: bold; padding: 10px;">Loading images...</div>';
             document.querySelectorAll('.tier-dropzone').forEach(zone => zone.innerHTML = '');
+            selectedItem = null;
 
             const rawBaseUrl = `https://raw.githubusercontent.com/${githubUser}/${githubRepo}/main/${folderName}/`;
             const backupList = ["1.webp", "2.webp", "3.webp", "4.webp", "5.webp"];
@@ -224,16 +305,29 @@
                 if (validImages.length === 0) throw new Error("No images found in folder");
 
                 pool.innerHTML = ''; 
+                
+                // Check if we have saved state before rendering
+                const hasSavedState = localStorage.getItem('tierListState') !== null;
+
                 validImages.forEach(file => {
-                    createImage(`${rawBaseUrl}${file.name}?v=11`);
+                    const imgUrl = `${rawBaseUrl}${file.name}?v=12`;
+                    // If no saved state, just dump them in the pool
+                    if (!hasSavedState) {
+                        createImage(imgUrl);
+                    }
                 });
+
+                // If there is saved state, try to load it
+                if (hasSavedState) {
+                    loadState();
+                }
 
             } catch (error) {
                 console.warn("GitHub API blocked/failed. Using backup list.", error);
                 pool.innerHTML = ''; 
                 if (backupList.length > 0) {
                     backupList.forEach(fileName => {
-                        createImage(`${rawBaseUrl}${fileName}?v=11`);
+                        createImage(`${rawBaseUrl}${fileName}?v=12`);
                     });
                 } else {
                     pool.innerHTML = '<div class="debug-msg">⚠️ Could not load images.</div>';
@@ -241,37 +335,32 @@
             }
         }
 
+        // 4. Button Listeners
         folderSelect.addEventListener('change', (e) => {
+            // Clear local storage when switching folders so it loads fresh
+            localStorage.removeItem('tierListState');
             loadOnlineFolder(e.target.value);
         });
 
-        // 4. Local Folder Logic
-        localBtn.addEventListener('click', () => {
-            localFileInput.click();
-        });
-
-        localFileInput.addEventListener('change', (e) => {
-            const files = e.target.files;
-            if (!files.length) return;
-
-            pool.innerHTML = ''; 
-            document.querySelectorAll('.tier-dropzone').forEach(zone => zone.innerHTML = '');
-
-            Array.from(files).forEach(file => {
-                const ext = file.name.toLowerCase();
-                if (ext.endsWith('.jpg') || ext.endsWith('.webp') || ext.endsWith('.png') || ext.endsWith('.gif')) {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        createImage(event.target.result);
-                    };
-                    reader.readAsDataURL(file);
+        resetBtn.addEventListener('click', () => {
+            if (confirm("Are you sure you want to reset the board?")) {
+                localStorage.removeItem('tierListState');
+                if (selectedItem) {
+                    selectedItem.classList.remove('selected-item');
+                    selectedItem = null;
                 }
-            });
-            localBtn.innerText = "✅ Local Loaded";
+                loadOnlineFolder(folderSelect.value);
+            }
         });
 
         // 5. Screenshot Logic
         document.getElementById('shareBtn').addEventListener('click', async () => {
+            // Deselect item so the blue border doesn't appear in the screenshot
+            if (selectedItem) {
+                selectedItem.classList.remove('selected-item');
+                selectedItem = null;
+            }
+
             const btn = document.getElementById('shareBtn');
             btn.innerText = 'Processing...';
             btn.disabled = true;
@@ -302,7 +391,7 @@
             if (window.location.protocol.startsWith('http')) {
                 loadOnlineFolder(folderSelect.value); 
             } else {
-                pool.innerHTML = '<div style="color: #666; font-weight: bold; padding: 10px;">Local Mode: Please click "📁 Load Local Folder" above.</div>';
+                pool.innerHTML = '<div style="color: #666; font-weight: bold; padding: 10px;">⚠️ Please view this via GitHub Pages (HTTP) to load images.</div>';
             }
         };
     </script>
