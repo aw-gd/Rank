@@ -10,12 +10,33 @@
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
         body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; padding: 10px; display: flex; flex-direction: column; align-items: center; }
         
-        .header-bar { width: 100%; max-width: 900px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 5px; }
+        .header-bar { width: 100%; max-width: 900px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 5px; flex-wrap: wrap; gap: 10px; }
         h1 { font-size: 20px; color: #333; }
+        
+        .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        
+        /* Buttons and Select */
+        select, .action-btn {
+            padding: 10px;
+            border-radius: 8px;
+            border: 2px solid #ccc;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            background-color: white;
+            outline: none;
+        }
+        
+        .action-btn { background-color: #4caf50; color: white; border: none; border-radius: 20px; padding: 10px 15px; }
+        .action-btn:active { background-color: #388e3c; }
         
         .share-btn { background-color: #1e88e5; color: white; border: none; padding: 10px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .share-btn:active { background-color: #1565c0; }
+        
+        /* Hide the file input */
+        #localFileInput { display: none; }
 
+        /* Tier Layout */
         .tier-container { display: flex; flex-direction: column; width: 100%; max-width: 900px; background-color: #b0b0b0; border: 2px solid #333; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
         .tier-row { display: flex; min-height: 60px; border-bottom: 2px solid #333; }
         .tier-row:last-child { border-bottom: none; }
@@ -47,7 +68,20 @@
 
     <div class="header-bar">
         <h1>图片强度排行榜</h1>
-        <button class="share-btn" id="shareBtn">📸 分享截图</button>
+        <div class="controls">
+            <!-- Online Dropdown -->
+            <select id="folderSelect">
+                <option value="images1">Group 1 (images1)</option>
+                <option value="images2">Group 2 (images2)</option>
+                <option value="images3">Group 3 (images3)</option>
+            </select>
+            
+            <!-- Local Button -->
+            <button class="action-btn" id="localBtn">📁 Load Local Folder</button>
+            <input type="file" id="localFileInput" webkitdirectory directory multiple>
+            
+            <button class="share-btn" id="shareBtn">📸 分享截图</button>
+        </div>
     </div>
 
     <div id="captureArea" style="background-color: #f0f2f5; padding: 10px; border-radius: 8px; width: 100%; display: flex; flex-direction: column; align-items: center;">
@@ -64,9 +98,12 @@
     <script>
         const pool = document.getElementById('imagePool');
         const dropzones = document.querySelectorAll('.tier-dropzone, .pool-container');
+        const folderSelect = document.getElementById('folderSelect');
+        const localBtn = document.getElementById('localBtn');
+        const localFileInput = document.getElementById('localFileInput');
         let draggedItem = null;
 
-        // 1. Drag & Drop Logic (Mobile & PC)
+        // 1. Drag & Drop Logic
         function makeDraggable(item) {
             item.addEventListener('dragstart', (e) => {
                 draggedItem = item;
@@ -108,7 +145,7 @@
             zone.addEventListener('drop', (e) => { e.preventDefault(); zone.style.backgroundColor = ''; if (draggedItem) zone.appendChild(draggedItem); });
         });
 
-        // 2. Scale individual images by 0.5
+        // 2. Scale Image by 0.5
         function createImage(src) {
             const img = document.createElement('img');
             img.classList.add('drag-item');
@@ -122,55 +159,79 @@
             pool.appendChild(img);
         }
 
-        // 3. Load Images from GitHub "images" folder
+        // 3. GitHub Online Logic
         const githubUser = "aw-gd"; 
         const githubRepo = "Rank";
-        const rawBaseUrl = `https://raw.githubusercontent.com/${githubUser}/${githubRepo}/main/images/`;
         
-        // 🚨 BACKUP LIST: If GitHub API is blocked, it will use this list.
-        // If you add new images, you can add their names here just in case!
-        const backupImageList = [
-            "1.webp", "2.webp", "3.webp", "4.webp", "5.webp", 
-            "6.webp", "7.webp", "8.webp", "9.webp"
-        ];
+        async function loadOnlineFolder(folderName) {
+            pool.innerHTML = '<div style="color: #666; font-weight: bold; padding: 10px;">Loading images from GitHub...</div>';
+            document.querySelectorAll('.tier-dropzone').forEach(zone => zone.innerHTML = '');
 
-        async function fetchImages() {
+            const rawBaseUrl = `https://raw.githubusercontent.com/${githubUser}/${githubRepo}/main/${folderName}/`;
+            const backupList = ["1.webp", "2.webp", "3.webp", "4.webp", "5.webp"];
+
             try {
-                // Try to fetch the folder contents from GitHub API
-                const response = await fetch(`https://api.github.com/repos/${githubUser}/${githubRepo}/contents/images`);
-                
+                const response = await fetch(`https://api.github.com/repos/${githubUser}/${githubRepo}/contents/${folderName}`);
                 if (!response.ok) throw new Error("API limit reached or folder not found");
                 
                 const files = await response.json();
                 
-                // Filter ONLY .jpg and .webp
-                const validImages = files.filter(file => 
-                    file.name.toLowerCase().endsWith('.jpg') || 
-                    file.name.toLowerCase().endsWith('.webp')
-                );
+                const validImages = files.filter(file => {
+                    const ext = file.name.toLowerCase();
+                    return ext.endsWith('.jpg') || ext.endsWith('.webp') || ext.endsWith('.png') || ext.endsWith('.gif');
+                });
 
                 if (validImages.length === 0) throw new Error("No images found in folder");
 
-                // Load them
+                pool.innerHTML = ''; 
                 validImages.forEach(file => {
-                    createImage(`${rawBaseUrl}${file.name}?v=4`);
+                    createImage(`${rawBaseUrl}${file.name}?v=6`);
                 });
 
             } catch (error) {
                 console.warn("GitHub API blocked/failed. Using backup list.", error);
-                
-                // If API fails, load the backup list manually
-                if (backupImageList.length > 0) {
-                    backupImageList.forEach(fileName => {
-                        createImage(`${rawBaseUrl}${fileName}?v=4`);
+                pool.innerHTML = ''; 
+                if (backupList.length > 0) {
+                    backupList.forEach(fileName => {
+                        createImage(`${rawBaseUrl}${fileName}?v=6`);
                     });
                 } else {
-                    pool.innerHTML = '<div class="debug-msg">⚠️ Could not load images and no backup list provided.</div>';
+                    pool.innerHTML = '<div class="debug-msg">⚠️ Could not load images. Make sure the folder exists.</div>';
                 }
             }
         }
 
-        // 4. Screenshot Logic
+        folderSelect.addEventListener('change', (e) => {
+            loadOnlineFolder(e.target.value);
+        });
+
+        // 4. Local Folder Logic (Browser FileReader)
+        localBtn.addEventListener('click', () => {
+            localFileInput.click();
+        });
+
+        localFileInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (!files.length) return;
+
+            pool.innerHTML = ''; 
+            document.querySelectorAll('.tier-dropzone').forEach(zone => zone.innerHTML = '');
+
+            Array.from(files).forEach(file => {
+                const ext = file.name.toLowerCase();
+                // Filter for .jpg, .webp, .png, .gif
+                if (ext.endsWith('.jpg') || ext.endsWith('.webp') || ext.endsWith('.png') || ext.endsWith('.gif')) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        createImage(event.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+            localBtn.innerText = "✅ Local Loaded";
+        });
+
+        // 5. Screenshot Logic
         document.getElementById('shareBtn').addEventListener('click', async () => {
             const btn = document.getElementById('shareBtn');
             btn.innerText = 'Processing...';
@@ -198,7 +259,14 @@
         });
 
         // Start
-        window.onload = () => { fetchImages(); };
+        window.onload = () => { 
+            // Only auto-load from GitHub if the URL starts with http/https
+            if (window.location.protocol.startsWith('http')) {
+                loadOnlineFolder(folderSelect.value); 
+            } else {
+                pool.innerHTML = '<div style="color: #666; font-weight: bold; padding: 10px;">Local Mode: Please click "📁 Load Local Folder" above.</div>';
+            }
+        };
     </script>
 </body>
 </html>
