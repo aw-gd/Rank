@@ -223,10 +223,10 @@
 
         // 2. Drag & Drop + Click to Move
         function makeInteractable(item) {
-            // 🚨 Desktop Drag Events
+            // Desktop Drag Events
             item.addEventListener('dragstart', (e) => {
                 draggedItem = item;
-                setTimeout(() => item.classList.add('is-dragging'), 0); // Add faded shadow
+                setTimeout(() => item.classList.add('is-dragging'), 0);
                 e.dataTransfer.setData('text/plain', ''); 
             });
             item.addEventListener('dragend', () => {
@@ -235,10 +235,11 @@
                 saveState(); 
             });
 
-            // 🚨 Mobile Touch Events
+            // 🚨 Mobile Touch Events (Fixed for 虚影) 🚨
             item.addEventListener('touchstart', (e) => {
                 draggedItem = item;
-                item.classList.add('is-dragging');
+                // 50ms delay allows the phone to register the touch before applying the CSS fade
+                setTimeout(() => { item.classList.add('is-dragging'); }, 50);
                 e.preventDefault();
             }, { passive: false });
             
@@ -247,10 +248,8 @@
                 const touch = e.touches[0];
                 const target = document.elementFromPoint(touch.clientX, touch.clientY);
                 
-                // Remove highlight from all zones
                 dropzones.forEach(z => z.classList.remove('drag-over-zone'));
 
-                // Highlight only the current hovered dropzone
                 if (target && target.closest('.tier-dropzone, .pool-container')) {
                     target.closest('.tier-dropzone, .pool-container').classList.add('drag-over-zone');
                 }
@@ -283,11 +282,10 @@
             });
         }
 
-        // 🚨 Highlight the Dropzone (Not the whole row)
         dropzones.forEach(zone => {
             zone.addEventListener('dragover', (e) => { 
                 e.preventDefault(); 
-                zone.classList.add('drag-over-zone'); // Add highlight only to the zone
+                zone.classList.add('drag-over-zone'); 
             });
             zone.addEventListener('dragleave', () => { 
                 zone.classList.remove('drag-over-zone'); 
