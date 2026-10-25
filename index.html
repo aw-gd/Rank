@@ -72,7 +72,7 @@
             min-height: 50px;
         }
 
-        /* Image pool at the bottom */
+        /* Image pool */
         .pool-container { 
             margin-top: 15px; 
             width: 100%; 
@@ -105,7 +105,6 @@
         }
         .drag-item:active { cursor: grabbing; opacity: 0.8; }
 
-        /* 🚨 Style for the clicked/selected image 🚨 */
         .selected-item {
             box-shadow: 0 0 0 3px #1e88e5 !important;
             border: 2px solid white !important;
@@ -114,6 +113,25 @@
         }
         
         .debug-msg { color: red; font-weight: bold; padding: 10px; width: 100%; background: white; border: 1px solid red; margin-bottom: 10px; }
+
+        /* Button at bottom */
+        .add-bottom-btn {
+            margin-top: 15px;
+            width: 100%;
+            max-width: 900px;
+            background-color: #4caf50;
+            color: white;
+            border: 2px dashed #388e3c;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: background 0.2s;
+        }
+        .add-bottom-btn:active { background-color: #388e3c; }
     </style>
 </head>
 <body>
@@ -122,10 +140,10 @@
         <h1>从夯到拉</h1>
         <div class="controls">
             <select id="folderSelect">
-                <option value="images1">皇室战争进攻卡牌</option>
                 <option value="images2">王者荣耀法师英雄</option>
+                <option value="images1">皇室战争进攻卡牌</option>
                 <option value="images3">王者荣耀召唤师技能</option>
-                <option value="images4">和平精英枪械</option> 
+                <option value="images4">和平精英枪械</option>
             </select>
             
             <button class="reset-btn" id="resetBtn">🔄 重置</button>
@@ -141,19 +159,23 @@
             <div class="tier-row"><div class="tier-label color-npc">NPC</div><div class="tier-dropzone" data-tier="npc"></div></div>
             <div class="tier-row"><div class="tier-label color-pull">拉完了</div><div class="tier-dropzone" data-tier="pull"></div></div>
         </div>
+        
         <div class="pool-container" id="imagePool" data-tier="pool"></div>
     </div>
+
+    <button class="add-bottom-btn" id="addCustomBtn">➕ 添加</button>
 
     <script>
         const pool = document.getElementById('imagePool');
         const dropzones = document.querySelectorAll('.tier-dropzone, .pool-container');
         const folderSelect = document.getElementById('folderSelect');
         const resetBtn = document.getElementById('resetBtn');
+        const addCustomBtn = document.getElementById('addCustomBtn');
         
         let draggedItem = null;
-        let selectedItem = null; // For Click to Move
+        let selectedItem = null; 
 
-        // 🚨 1. Save & Load State Logic
+        // 1. Save & Load State
         function saveState() {
             const state = {};
             dropzones.forEach(zone => {
@@ -173,7 +195,6 @@
                 pool.innerHTML = ''; 
                 document.querySelectorAll('.tier-dropzone').forEach(zone => zone.innerHTML = '');
 
-                // Restore images to their saved zones
                 Object.keys(state).forEach(tierName => {
                     const zone = document.querySelector(`[data-tier="${tierName}"]`);
                     if (zone) {
@@ -184,14 +205,12 @@
                 });
                 return true;
             } catch (e) {
-                console.error("Failed to load state", e);
                 return false;
             }
         }
 
-        // 🚨 2. Drag & Drop + Click to Move Logic
+        // 2. Drag & Drop + Click to Move
         function makeInteractable(item) {
-            // Drag Events
             item.addEventListener('dragstart', (e) => {
                 draggedItem = item;
                 setTimeout(() => item.style.opacity = '0.5', 0);
@@ -200,7 +219,7 @@
             item.addEventListener('dragend', () => {
                 item.style.opacity = '1';
                 draggedItem = null;
-                saveState(); // Save when drag ends
+                saveState(); 
             });
             item.addEventListener('touchstart', (e) => {
                 draggedItem = item;
@@ -227,15 +246,12 @@
                 draggedItem = null;
             });
 
-            // Click to Move Events
             item.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent triggering the zone click below
+                e.stopPropagation(); 
                 if (selectedItem === item) {
-                    // Deselect
                     item.classList.remove('selected-item');
                     selectedItem = null;
                 } else {
-                    // Select
                     if (selectedItem) selectedItem.classList.remove('selected-item');
                     selectedItem = item;
                     item.classList.add('selected-item');
@@ -243,7 +259,6 @@
             });
         }
 
-        // Allow clicking a zone to move the selected image there
         dropzones.forEach(zone => {
             zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.style.backgroundColor = '#e6f7ff'; });
             zone.addEventListener('dragleave', () => { zone.style.backgroundColor = ''; });
@@ -256,7 +271,6 @@
                 }
             });
 
-            // Click Zone Logic
             zone.addEventListener('click', () => {
                 if (selectedItem) {
                     zone.appendChild(selectedItem);
@@ -267,20 +281,95 @@
             });
         });
 
-        // Create Image
         function createImage(src, targetZone = pool) {
             const img = document.createElement('img');
             img.classList.add('drag-item');
             img.draggable = true;
-            img.setAttribute('data-src', src); // Store src for saving state
+            img.setAttribute('data-src', src); 
             
-            // Build the image URL
             img.src = src;
             makeInteractable(img);
             targetZone.appendChild(img);
         }
 
-        // 3. GitHub Online Logic
+        // 🚨 3. Dynamic Text-to-Image Logic 🚨
+        addCustomBtn.addEventListener('click', () => {
+            const text = prompt("请输入要排名的内容 (文字):");
+            if (!text || text.trim() === '') return;
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            const size = 200;
+            canvas.width = size;
+            canvas.height = size;
+
+            // Background
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, size, size);
+
+            // Border
+            ctx.strokeStyle = "#cccccc";
+            ctx.lineWidth = 4;
+            ctx.strokeRect(0, 0, size, size);
+
+            // Text Settings
+            ctx.fillStyle = "#333333";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            const maxWidth = 170; 
+            const maxHeight = 170;
+            let fontSize = 100; 
+            let lines = [];
+
+            function wrapText(text, fontSize) {
+                ctx.font = `bold ${fontSize}px sans-serif`;
+                const words = text.split('');
+                let line = '';
+                let currentLines = [];
+                
+                for(let n = 0; n < words.length; n++) {
+                    const testLine = line + words[n];
+                    const metrics = ctx.measureText(testLine);
+                    if (metrics.width > maxWidth && n > 0) {
+                        currentLines.push(line);
+                        line = words[n];
+                    } else {
+                        line = testLine;
+                    }
+                }
+                currentLines.push(line);
+                return currentLines;
+            }
+
+            let lineHeight = fontSize * 1.2;
+            do {
+                lines = wrapText(text, fontSize);
+                lineHeight = fontSize * 1.2;
+                const totalHeight = lines.length * lineHeight;
+                
+                if (totalHeight <= maxHeight && ctx.measureText(lines[0]).width <= maxWidth) {
+                    break;
+                }
+                fontSize -= 2; 
+            } while (fontSize > 10);
+
+            const totalTextHeight = lines.length * lineHeight;
+            const startY = (size - totalTextHeight) / 2 + (lineHeight / 2);
+
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            for(let i = 0; i < lines.length; i++) {
+                ctx.fillText(lines[i], size / 2, startY + i * lineHeight);
+            }
+
+            // Add to pool
+            const dataUrl = canvas.toDataURL('image/png');
+            createImage(dataUrl, pool);
+            saveState();
+        });
+
+        // 4. GitHub Online Logic
         const githubUser = "aw-gd"; 
         const githubRepo = "Rank";
         
@@ -306,19 +395,15 @@
                 if (validImages.length === 0) throw new Error("No images found in folder");
 
                 pool.innerHTML = ''; 
-                
-                // Check if we have saved state before rendering
                 const hasSavedState = localStorage.getItem('tierListState') !== null;
 
                 validImages.forEach(file => {
-                    const imgUrl = `${rawBaseUrl}${file.name}?v=12`;
-                    // If no saved state, just dump them in the pool
+                    const imgUrl = `${rawBaseUrl}${file.name}?v=14`;
                     if (!hasSavedState) {
                         createImage(imgUrl);
                     }
                 });
 
-                // If there is saved state, try to load it
                 if (hasSavedState) {
                     loadState();
                 }
@@ -328,7 +413,7 @@
                 pool.innerHTML = ''; 
                 if (backupList.length > 0) {
                     backupList.forEach(fileName => {
-                        createImage(`${rawBaseUrl}${fileName}?v=12`);
+                        createImage(`${rawBaseUrl}${fileName}?v=14`);
                     });
                 } else {
                     pool.innerHTML = '<div class="debug-msg">⚠️ Could not load images.</div>';
@@ -336,9 +421,7 @@
             }
         }
 
-        // 4. Button Listeners
         folderSelect.addEventListener('change', (e) => {
-            // Clear local storage when switching folders so it loads fresh
             localStorage.removeItem('tierListState');
             loadOnlineFolder(e.target.value);
         });
@@ -356,7 +439,6 @@
 
         // 5. Screenshot Logic
         document.getElementById('shareBtn').addEventListener('click', async () => {
-            // Deselect item so the blue border doesn't appear in the screenshot
             if (selectedItem) {
                 selectedItem.classList.remove('selected-item');
                 selectedItem = null;
