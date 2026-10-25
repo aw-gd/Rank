@@ -106,9 +106,8 @@
             transition: opacity 0.2s, box-shadow 0.2s, border 0.2s;
         }
 
-        /* 🚨 The Virtual Shadow (虚影) style 🚨 */
         .is-dragging {
-            opacity: 0.3; /* Faded appearance */
+            opacity: 0.3; 
             border: 2px dashed #555;
         }
 
@@ -119,9 +118,8 @@
             z-index: 10;
         }
         
-        /* 🚨 The highlight style for the target dropzone only 🚨 */
         .drag-over-zone {
-            background-color: #e6f7ff !important; /* Light blue highlight */
+            background-color: #e6f7ff !important; 
         }
         
         .debug-msg { color: red; font-weight: bold; padding: 10px; width: 100%; background: white; border: 1px solid red; margin-bottom: 10px; }
@@ -187,7 +185,29 @@
         let draggedItem = null;
         let selectedItem = null; 
 
-        // 1. Save & Load State
+        // 🚨 THE FIX: Robust geometric calculation 🚨
+        function getDragAfterElement(container, x, y) {
+            const draggableElements = [...container.querySelectorAll('.drag-item:not(.is-dragging)')];
+            
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                
+                // Check if cursor is to the right of the center (offsetX > 0)
+                const offsetX = x - (box.left + box.width / 2);
+                // Check if cursor is below the center (offsetY > 0)
+                const offsetY = y - (box.top + box.height / 2);
+                
+                // If the cursor is to the left (or above) the item's center, it's a candidate to drop BEFORE
+                if (offsetX < 0 || (offsetX < box.width / 2 && offsetY < 0)) {
+                    const distance = Math.hypot(offsetX, offsetY);
+                    if (distance < closest.distance) {
+                        return { distance: distance, element: child };
+                    }
+                }
+                return closest;
+            }, { distance: Number.POSITIVE_INFINITY }).element;
+        }
+
         function saveState() {
             const state = {};
             dropzones.forEach(zone => {
@@ -221,9 +241,7 @@
             }
         }
 
-        // 2. Drag & Drop + Click to Move
         function makeInteractable(item) {
-            // Desktop Drag Events
             item.addEventListener('dragstart', (e) => {
                 draggedItem = item;
                 setTimeout(() => item.classList.add('is-dragging'), 0);
@@ -235,10 +253,8 @@
                 saveState(); 
             });
 
-            // 🚨 Mobile Touch Events (Fixed for 虚影) 🚨
             item.addEventListener('touchstart', (e) => {
                 draggedItem = item;
-                // 50ms delay allows the phone to register the touch before applying the CSS fade
                 setTimeout(() => { item.classList.add('is-dragging'); }, 50);
                 e.preventDefault();
             }, { passive: false });
@@ -246,26 +262,26 @@
             item.addEventListener('touchmove', (e) => {
                 e.preventDefault();
                 const touch = e.touches[0];
-                const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                const targetZone = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.tier-dropzone, .pool-container');
                 
                 dropzones.forEach(z => z.classList.remove('drag-over-zone'));
 
-                if (target && target.closest('.tier-dropzone, .pool-container')) {
-                    target.closest('.tier-dropzone, .pool-container').classList.add('drag-over-zone');
+                if (targetZone) {
+                    targetZone.classList.add('drag-over-zone');
+                    const afterElement = getDragAfterElement(targetZone, touch.clientX, touch.clientY);
+                    
+                    if (afterElement == null) {
+                        targetZone.appendChild(draggedItem); // Safely appends to the end
+                    } else {
+                        targetZone.insertBefore(draggedItem, afterElement);
+                    }
                 }
             }, { passive: false });
             
             item.addEventListener('touchend', (e) => {
                 item.classList.remove('is-dragging');
-                const touch = e.changedTouches[0];
-                const target = document.elementFromPoint(touch.clientX, touch.clientY);
-                
                 dropzones.forEach(z => z.classList.remove('drag-over-zone'));
-                
-                if (target && target.closest('.tier-dropzone, .pool-container')) {
-                    target.closest('.tier-dropzone, .pool-container').appendChild(draggedItem);
-                    saveState();
-                }
+                saveState();
                 draggedItem = null;
             });
 
@@ -286,15 +302,25 @@
             zone.addEventListener('dragover', (e) => { 
                 e.preventDefault(); 
                 zone.classList.add('drag-over-zone'); 
+                
+                if (draggedItem) {
+                    const afterElement = getDragAfterElement(zone, e.clientX, e.clientY);
+                    if (afterElement == null) {
+                        zone.appendChild(draggedItem); 
+                    } else {
+                        zone.insertBefore(draggedItem, afterElement);
+                    }
+                }
             });
+            
             zone.addEventListener('dragleave', () => { 
                 zone.classList.remove('drag-over-zone'); 
             });
+            
             zone.addEventListener('drop', (e) => { 
                 e.preventDefault(); 
                 zone.classList.remove('drag-over-zone'); 
                 if (draggedItem) {
-                    zone.appendChild(draggedItem); 
                     saveState();
                 }
             });
@@ -320,7 +346,6 @@
             targetZone.appendChild(img);
         }
 
-        // 3. Dynamic Text-to-Image Logic
         addCustomBtn.addEventListener('click', () => {
             const text = prompt("请输入要排名的内容 (文字):");
             if (!text || text.trim() === '') return;
@@ -393,7 +418,6 @@
             saveState();
         });
 
-        // 4. GitHub Online Logic
         const githubUser = "aw-gd"; 
         const githubRepo = "Rank";
         
@@ -422,7 +446,7 @@
                 const hasSavedState = localStorage.getItem('tierListState') !== null;
 
                 validImages.forEach(file => {
-                    const imgUrl = `${rawBaseUrl}${file.name}?v=15`;
+                    const imgUrl = `${rawBaseUrl}${file.name}?v=18`;
                     if (!hasSavedState) {
                         createImage(imgUrl);
                     }
@@ -437,7 +461,7 @@
                 pool.innerHTML = ''; 
                 if (backupList.length > 0) {
                     backupList.forEach(fileName => {
-                        createImage(`${rawBaseUrl}${fileName}?v=15`);
+                        createImage(`${rawBaseUrl}${fileName}?v=18`);
                     });
                 } else {
                     pool.innerHTML = '<div class="debug-msg">⚠️ Could not load images.</div>';
@@ -461,7 +485,6 @@
             }
         });
 
-        // 5. Screenshot Logic
         document.getElementById('shareBtn').addEventListener('click', async () => {
             if (selectedItem) {
                 selectedItem.classList.remove('selected-item');
@@ -493,7 +516,6 @@
             }
         });
 
-        // Start
         window.onload = () => { 
             if (window.location.protocol.startsWith('http')) {
                 loadOnlineFolder(folderSelect.value); 
