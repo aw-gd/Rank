@@ -70,6 +70,7 @@
             padding: 4px; 
             background-color: #cfcfcf; 
             min-height: 50px;
+            transition: background-color 0.2s;
         }
 
         /* Image pool */
@@ -88,6 +89,7 @@
             flex-wrap: wrap; 
             gap: 6px; 
             align-content: flex-start; 
+            transition: background-color 0.2s;
         }
         
         /* Image Styles */
@@ -101,15 +103,25 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.2); 
             cursor: grab; 
             touch-action: none; 
-            transition: box-shadow 0.2s, border 0.2s;
+            transition: opacity 0.2s, box-shadow 0.2s, border 0.2s;
         }
-        .drag-item:active { cursor: grabbing; opacity: 0.8; }
+
+        /* 🚨 The Virtual Shadow (虚影) style 🚨 */
+        .is-dragging {
+            opacity: 0.3; /* Faded appearance */
+            border: 2px dashed #555;
+        }
 
         .selected-item {
             box-shadow: 0 0 0 3px #1e88e5 !important;
             border: 2px solid white !important;
             transform: scale(1.1);
             z-index: 10;
+        }
+        
+        /* 🚨 The highlight style for the target dropzone only 🚨 */
+        .drag-over-zone {
+            background-color: #e6f7ff !important; /* Light blue highlight */
         }
         
         .debug-msg { color: red; font-weight: bold; padding: 10px; width: 100%; background: white; border: 1px solid red; margin-bottom: 10px; }
@@ -211,34 +223,46 @@
 
         // 2. Drag & Drop + Click to Move
         function makeInteractable(item) {
+            // 🚨 Desktop Drag Events
             item.addEventListener('dragstart', (e) => {
                 draggedItem = item;
-                setTimeout(() => item.style.opacity = '0.5', 0);
+                setTimeout(() => item.classList.add('is-dragging'), 0); // Add faded shadow
                 e.dataTransfer.setData('text/plain', ''); 
             });
             item.addEventListener('dragend', () => {
-                item.style.opacity = '1';
+                item.classList.remove('is-dragging');
                 draggedItem = null;
                 saveState(); 
             });
+
+            // 🚨 Mobile Touch Events
             item.addEventListener('touchstart', (e) => {
                 draggedItem = item;
-                item.style.opacity = '0.5';
+                item.classList.add('is-dragging');
                 e.preventDefault();
             }, { passive: false });
+            
             item.addEventListener('touchmove', (e) => {
                 e.preventDefault();
                 const touch = e.touches[0];
                 const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                
+                // Remove highlight from all zones
+                dropzones.forEach(z => z.classList.remove('drag-over-zone'));
+
+                // Highlight only the current hovered dropzone
                 if (target && target.closest('.tier-dropzone, .pool-container')) {
-                    target.closest('.tier-dropzone, .pool-container').style.backgroundColor = '#e6f7ff';
+                    target.closest('.tier-dropzone, .pool-container').classList.add('drag-over-zone');
                 }
             }, { passive: false });
+            
             item.addEventListener('touchend', (e) => {
-                item.style.opacity = '1';
+                item.classList.remove('is-dragging');
                 const touch = e.changedTouches[0];
                 const target = document.elementFromPoint(touch.clientX, touch.clientY);
-                dropzones.forEach(z => z.style.backgroundColor = '');
+                
+                dropzones.forEach(z => z.classList.remove('drag-over-zone'));
+                
                 if (target && target.closest('.tier-dropzone, .pool-container')) {
                     target.closest('.tier-dropzone, .pool-container').appendChild(draggedItem);
                     saveState();
@@ -259,12 +283,18 @@
             });
         }
 
+        // 🚨 Highlight the Dropzone (Not the whole row)
         dropzones.forEach(zone => {
-            zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.style.backgroundColor = '#e6f7ff'; });
-            zone.addEventListener('dragleave', () => { zone.style.backgroundColor = ''; });
+            zone.addEventListener('dragover', (e) => { 
+                e.preventDefault(); 
+                zone.classList.add('drag-over-zone'); // Add highlight only to the zone
+            });
+            zone.addEventListener('dragleave', () => { 
+                zone.classList.remove('drag-over-zone'); 
+            });
             zone.addEventListener('drop', (e) => { 
                 e.preventDefault(); 
-                zone.style.backgroundColor = ''; 
+                zone.classList.remove('drag-over-zone'); 
                 if (draggedItem) {
                     zone.appendChild(draggedItem); 
                     saveState();
@@ -292,7 +322,7 @@
             targetZone.appendChild(img);
         }
 
-        // 🚨 3. Dynamic Text-to-Image Logic 🚨
+        // 3. Dynamic Text-to-Image Logic
         addCustomBtn.addEventListener('click', () => {
             const text = prompt("请输入要排名的内容 (文字):");
             if (!text || text.trim() === '') return;
@@ -304,16 +334,13 @@
             canvas.width = size;
             canvas.height = size;
 
-            // Background
             ctx.fillStyle = "#ffffff";
             ctx.fillRect(0, 0, size, size);
 
-            // Border
             ctx.strokeStyle = "#cccccc";
             ctx.lineWidth = 4;
             ctx.strokeRect(0, 0, size, size);
 
-            // Text Settings
             ctx.fillStyle = "#333333";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
@@ -363,7 +390,6 @@
                 ctx.fillText(lines[i], size / 2, startY + i * lineHeight);
             }
 
-            // Add to pool
             const dataUrl = canvas.toDataURL('image/png');
             createImage(dataUrl, pool);
             saveState();
@@ -398,7 +424,7 @@
                 const hasSavedState = localStorage.getItem('tierListState') !== null;
 
                 validImages.forEach(file => {
-                    const imgUrl = `${rawBaseUrl}${file.name}?v=14`;
+                    const imgUrl = `${rawBaseUrl}${file.name}?v=15`;
                     if (!hasSavedState) {
                         createImage(imgUrl);
                     }
@@ -413,7 +439,7 @@
                 pool.innerHTML = ''; 
                 if (backupList.length > 0) {
                     backupList.forEach(fileName => {
-                        createImage(`${rawBaseUrl}${fileName}?v=14`);
+                        createImage(`${rawBaseUrl}${fileName}?v=15`);
                     });
                 } else {
                     pool.innerHTML = '<div class="debug-msg">⚠️ Could not load images.</div>';
