@@ -150,6 +150,7 @@
         <h1>从夯到拉</h1>
         <div class="controls">
             <select id="folderSelect">
+                <option value="images6">绝区零S角色</option>
                 <option value="images5">崩铁五星角色</option>
                 <option value="images2">王者荣耀法师英雄</option>
                 <option value="images1">皇室战争进攻卡牌</option>
@@ -186,19 +187,14 @@
         let draggedItem = null;
         let selectedItem = null; 
 
-        // 🚨 THE FIX: Robust geometric calculation 🚨
         function getDragAfterElement(container, x, y) {
             const draggableElements = [...container.querySelectorAll('.drag-item:not(.is-dragging)')];
             
             return draggableElements.reduce((closest, child) => {
                 const box = child.getBoundingClientRect();
-                
-                // Check if cursor is to the right of the center (offsetX > 0)
                 const offsetX = x - (box.left + box.width / 2);
-                // Check if cursor is below the center (offsetY > 0)
                 const offsetY = y - (box.top + box.height / 2);
                 
-                // If the cursor is to the left (or above) the item's center, it's a candidate to drop BEFORE
                 if (offsetX < 0 || (offsetX < box.width / 2 && offsetY < 0)) {
                     const distance = Math.hypot(offsetX, offsetY);
                     if (distance < closest.distance) {
@@ -272,7 +268,7 @@
                     const afterElement = getDragAfterElement(targetZone, touch.clientX, touch.clientY);
                     
                     if (afterElement == null) {
-                        targetZone.appendChild(draggedItem); // Safely appends to the end
+                        targetZone.appendChild(draggedItem); 
                     } else {
                         targetZone.insertBefore(draggedItem, afterElement);
                     }
@@ -428,7 +424,9 @@
             selectedItem = null;
 
             const rawBaseUrl = `https://raw.githubusercontent.com/${githubUser}/${githubRepo}/main/${folderName}/`;
-            const backupList = ["1.webp", "2.webp", "3.webp", "4.webp", "5.webp"];
+            
+            // 🚨 Base backup list for all folders (Defaults to .webp)
+            let backupList = ["1.webp", "2.webp", "3.webp", "4.webp", "5.webp", "6.webp", "7.webp", "8.webp", "9.webp", "10.webp"];
 
             try {
                 const response = await fetch(`https://api.github.com/repos/${githubUser}/${githubRepo}/contents/${folderName}`);
@@ -447,7 +445,7 @@
                 const hasSavedState = localStorage.getItem('tierListState') !== null;
 
                 validImages.forEach(file => {
-                    const imgUrl = `${rawBaseUrl}${file.name}?v=18`;
+                    const imgUrl = `${rawBaseUrl}${file.name}?v=20`;
                     if (!hasSavedState) {
                         createImage(imgUrl);
                     }
@@ -462,7 +460,7 @@
                 pool.innerHTML = ''; 
                 if (backupList.length > 0) {
                     backupList.forEach(fileName => {
-                        createImage(`${rawBaseUrl}${fileName}?v=18`);
+                        createImage(`${rawBaseUrl}${fileName}?v=20`);
                     });
                 } else {
                     pool.innerHTML = '<div class="debug-msg">⚠️ Could not load images.</div>';
