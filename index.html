@@ -41,10 +41,6 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
 
-        .toolbar-btn:hover {
-            border-color: #1e88e5;
-        }
-
         .toolbar-btn.active {
             background-color: #1e88e5;
             color: white;
@@ -65,7 +61,6 @@
         }
         
         h1 { font-size: 20px; color: #333; }
-        
         .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         
         .share-btn { background-color: #1e88e5; color: white; border: none; padding: 10px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-family: inherit; }
@@ -85,7 +80,6 @@
             border-radius: 8px; 
             overflow: hidden; 
             box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
-            
             position: sticky; 
             top: 0; 
             z-index: 100;
@@ -139,7 +133,6 @@
             max-height: 40px; 
             width: auto;      
             object-fit: contain; 
-            
             border-radius: 4px; 
             background-color: white; 
             box-shadow: 0 1px 3px rgba(0,0,0,0.2); 
@@ -158,6 +151,7 @@
             border: 2px solid white !important;
             transform: scale(1.1);
             z-index: 10;
+            opacity: 1 !important; /* 强制选中时绝对不透明 */
         }
         
         .drag-over-zone {
@@ -189,7 +183,6 @@
 </head>
 <body>
 
-    <!-- 顶部工具栏 -->
     <div class="top-toolbar" id="toolbar">
         <button class="toolbar-btn active" data-folder="images6">绝区零S角色</button>
         <button class="toolbar-btn" data-folder="images5">崩铁五星限定角色</button>
@@ -231,19 +224,26 @@
         let draggedItem = null;
         let selectedItem = null; 
 
-        // 手机端触摸判定变量
         let touchStartX = 0;
         let touchStartY = 0;
         let isTouchMoved = false;
+        let touchStartTime = 0; 
 
-        // 工具栏点击逻辑
+        // 🚨 全局兜底：只要手指离开屏幕，强制清理所有图片的半透明状态 🚨
+        document.addEventListener('touchend', () => {
+            document.querySelectorAll('.is-dragging').forEach(el => el.classList.remove('is-dragging'));
+            dropzones.forEach(z => z.classList.remove('drag-over-zone'));
+        });
+        document.addEventListener('touchcancel', () => {
+            document.querySelectorAll('.is-dragging').forEach(el => el.classList.remove('is-dragging'));
+            dropzones.forEach(z => z.classList.remove('drag-over-zone'));
+        });
+
         document.querySelectorAll('.toolbar-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.toolbar-btn').forEach(b => b.classList.remove('active'));
                 e.target.classList.add('active');
-                
                 currentFolder = e.target.getAttribute('data-folder');
-                
                 localStorage.removeItem('tierListState');
                 loadOnlineFolder(currentFolder);
             });
@@ -251,7 +251,6 @@
 
         function getDragAfterElement(container, x, y) {
             const draggableElements = [...container.querySelectorAll('.drag-item:not(.is-dragging)')];
-            
             if (draggableElements.length === 0) return null;
 
             return draggableElements.reduce((closest, child) => {
@@ -302,6 +301,7 @@
         }
 
         function makeInteractable(item) {
+            // 电脑端拖拽
             item.addEventListener('dragstart', (e) => {
                 draggedItem = item;
                 setTimeout(() => item.classList.add('is-dragging'), 0);
@@ -313,27 +313,25 @@
                 saveState(); 
             });
 
-            // 手机端触摸事件
+            // 手机端触摸
             item.addEventListener('touchstart', (e) => {
                 touchStartX = e.touches[0].clientX;
                 touchStartY = e.touches[0].clientY;
+                touchStartTime = Date.now();
                 isTouchMoved = false; 
-                
                 draggedItem = item;
-                setTimeout(() => { 
-                    if (!isTouchMoved) item.classList.add('is-dragging'); 
-                }, 100);
             }, { passive: true });
             
             item.addEventListener('touchmove', (e) => {
                 const touch = e.touches[0];
                 const moveX = Math.abs(touch.clientX - touchStartX);
                 const moveY = Math.abs(touch.clientY - touchStartY);
+                const touchDuration = Date.now() - touchStartTime;
                 
-                if (moveX > 10 || moveY > 10) {
+                if ((moveX > 10 || moveY > 10) && touchDuration > 100) {
                     if (!isTouchMoved) {
                         isTouchMoved = true;
-                        item.classList.add('is-dragging');
+                        item.classList.add('is-dragging'); 
                     }
                     e.preventDefault(); 
                     
@@ -359,19 +357,13 @@
             }, { passive: false });
             
             item.addEventListener('touchend', (e) => {
-                // 🚨 修复：无论是否移动，都在抬起手指时清除半透明状态 🚨
-                item.classList.remove('is-dragging');
-                dropzones.forEach(z => z.classList.remove('drag-over-zone'));
-                
-                if (!isTouchMoved) {
-                    draggedItem = null;
-                    return; 
+                if (isTouchMoved) {
+                    saveState();
                 }
-                
-                saveState();
                 draggedItem = null;
             });
 
+            // 点击事件
             item.addEventListener('click', (e) => {
                 e.stopPropagation(); 
                 if (selectedItem === item) {
@@ -419,8 +411,9 @@
 
             zone.addEventListener('click', () => {
                 if (selectedItem) {
+                    // 放入后，强制清理选中的样式和任何残留的拖动样式
+                    selectedItem.classList.remove('selected-item', 'is-dragging'); 
                     zone.appendChild(selectedItem);
-                    selectedItem.classList.remove('selected-item');
                     selectedItem = null;
                     saveState();
                 }
@@ -552,7 +545,7 @@
                 const hasSavedState = localStorage.getItem('tierListState') !== null;
 
                 validImages.forEach(file => {
-                    const imgUrl = `${file.download_url}?v=37`;
+                    const imgUrl = `${file.download_url}?v=40`;
                     if (!hasSavedState) {
                         createImage(imgUrl);
                     }
