@@ -8,28 +8,70 @@
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        body { 
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif; 
+            background-color: #f0f2f5; 
+            padding: 10px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+        }
         
-        .header-bar { width: 100%; max-width: 900px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 5px; flex-wrap: wrap; gap: 10px; }
+        /* 顶部工具栏 */
+        .top-toolbar {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+            justify-content: center;
+        }
+
+        .toolbar-btn {
+            background-color: white;
+            color: #333;
+            border: 2px solid #ccc;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .toolbar-btn:hover {
+            border-color: #1e88e5;
+        }
+
+        .toolbar-btn.active {
+            background-color: #1e88e5;
+            color: white;
+            border-color: #1e88e5;
+            box-shadow: 0 4px 8px rgba(30, 136, 229, 0.3);
+        }
+
+        .header-bar { 
+            width: 100%; 
+            max-width: 900px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 15px; 
+            padding: 0 5px; 
+            flex-wrap: wrap; 
+            gap: 10px; 
+        }
+        
         h1 { font-size: 20px; color: #333; }
         
         .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         
-        select {
-            padding: 10px;
-            border-radius: 8px;
-            border: 2px solid #ccc;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            background-color: white;
-            outline: none;
-        }
-        
-        .share-btn { background-color: #1e88e5; color: white; border: none; padding: 10px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .share-btn { background-color: #1e88e5; color: white; border: none; padding: 10px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-family: inherit; }
         .share-btn:active { background-color: #1565c0; }
         
-        .reset-btn { background-color: #f44336; color: white; border: none; padding: 10px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .reset-btn { background-color: #f44336; color: white; border: none; padding: 10px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-family: inherit; }
         .reset-btn:active { background-color: #d32f2f; }
 
         /* Tier Layout */
@@ -140,26 +182,29 @@
             text-align: center;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             transition: background 0.2s;
+            font-family: inherit;
         }
         .add-bottom-btn:active { background-color: #388e3c; }
     </style>
 </head>
 <body>
 
+    <!-- 顶部工具栏 -->
+    <div class="top-toolbar" id="toolbar">
+        <button class="toolbar-btn active" data-folder="images6">绝区零S角色</button>
+        <button class="toolbar-btn" data-folder="images5">崩铁五星限定角色</button>
+        <button class="toolbar-btn" data-folder="images2">王者荣耀法师英雄</button>
+        <button class="toolbar-btn" data-folder="images1">皇室战争进攻卡牌</button>
+        <button class="toolbar-btn" data-folder="images3">王者荣耀召唤师技能</button>
+        <!-- 和平精英枪械已被删除 -->
+        <button class="toolbar-btn" data-folder="custom">自定义</button>
+    </div>
+
     <div class="header-bar">
         <h1>从夯到拉</h1>
         <div class="controls">
-            <select id="folderSelect">
-                <option value="images6">绝区零S角色</option>
-                <option value="images5">崩铁五星角色</option>
-                <option value="images2">王者荣耀法师英雄</option>
-                <option value="images1">皇室战争进攻卡牌</option>
-                <option value="images3">王者荣耀召唤师技能</option>
-                <option value="images4">和平精英枪械</option>
-            </select>
-            
             <button class="reset-btn" id="resetBtn">🔄 重置</button>
-            <button class="share-btn" id="shareBtn">📸 分享截图</button>
+            <button class="share-btn" id="shareBtn">分享</button>
         </div>
     </div>
 
@@ -180,73 +225,42 @@
     <script>
         const pool = document.getElementById('imagePool');
         const dropzones = document.querySelectorAll('.tier-dropzone, .pool-container');
-        const folderSelect = document.getElementById('folderSelect');
         const resetBtn = document.getElementById('resetBtn');
         const addCustomBtn = document.getElementById('addCustomBtn');
         
+        let currentFolder = "images6"; 
         let draggedItem = null;
         let selectedItem = null; 
 
-        // 🚨 THE DEFINITIVE FIX: Strict Row-by-Row Geometric Check 🚨
+        // 工具栏点击逻辑
+        document.querySelectorAll('.toolbar-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.toolbar-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                currentFolder = e.target.getAttribute('data-folder');
+                
+                localStorage.removeItem('tierListState');
+                loadOnlineFolder(currentFolder);
+            });
+        });
+
         function getDragAfterElement(container, x, y) {
             const draggableElements = [...container.querySelectorAll('.drag-item:not(.is-dragging)')];
             
             if (draggableElements.length === 0) return null;
 
-            // 1. Get the bounding box of the entire dropzone
-            const containerBox = container.getBoundingClientRect();
-
-            // 2. Find all distinct Y-rows based on the top position of the images
-            const rows = [];
-            draggableElements.forEach(child => {
-                const box = child.getBoundingClientRect();
-                // If this image's top is significantly different from existing rows, it's a new row
-                if (!rows.some(rowY => Math.abs(rowY - box.top) < 10)) {
-                    rows.push(box.top);
-                }
-            });
-            rows.sort((a, b) => a - b); // Sort rows from top to bottom
-
-            // 3. Find which row the cursor is currently in (or below)
-            let currentRowY = rows[rows.length - 1] + 100; // Default to below the last row
-            for (let i = 0; i < rows.length; i++) {
-                if (y < rows[i] + 20) { // 20px tolerance for the height of the image
-                    currentRowY = rows[i];
-                    break;
-                }
-            }
-
-            // 4. If the cursor is way below the last row of images, drop at the very end
-            const lastItem = draggableElements[draggableElements.length - 1];
-            const lastItemBox = lastItem.getBoundingClientRect();
-            if (y > lastItemBox.bottom) {
-                // Check if we are to the right of the last item (or on a new line entirely)
-                if (x > lastItemBox.right) return null; 
-                // If on a new line below everything, append at the end
-                if (y > lastItemBox.bottom + 10) return null; 
-            }
-
-            // 5. Filter to only the images in the current row
-            const itemsInCurrentRow = draggableElements.filter(child => {
-                const box = child.getBoundingClientRect();
-                return Math.abs(box.top - currentRowY) < 20;
-            });
-
-            if (itemsInCurrentRow.length === 0) return null;
-
-            // 6. Find the closest item on the X-axis within this specific row
-            return itemsInCurrentRow.reduce((closest, child) => {
+            return draggableElements.reduce((closest, child) => {
                 const box = child.getBoundingClientRect();
                 const offsetX = x - (box.left + box.width / 2);
-                
-                // If the cursor is to the left of the item's center, it's a candidate
-                if (offsetX < 0) {
-                    const distance = Math.abs(offsetX);
-                    if (distance < closest.distance) {
-                        return { distance: distance, element: child };
-                    }
+                const offsetY = y - (box.top + box.height / 2);
+                const distance = offsetX * offsetX + offsetY * offsetY;
+
+                if (distance < closest.distance) {
+                    return { distance: distance, element: child };
+                } else {
+                    return closest;
                 }
-                return closest;
             }, { distance: Number.POSITIVE_INFINITY }).element;
         }
 
@@ -477,6 +491,11 @@
             document.querySelectorAll('.tier-dropzone').forEach(zone => zone.innerHTML = '');
             selectedItem = null;
 
+            if (folderName === "custom") {
+                pool.innerHTML = ''; 
+                return;
+            }
+
             const timestamp = new Date().getTime();
             const apiUrl = `https://api.github.com/repos/${githubUser}/${githubRepo}/contents/${folderName}?t=${timestamp}`;
 
@@ -506,7 +525,7 @@
                 const hasSavedState = localStorage.getItem('tierListState') !== null;
 
                 validImages.forEach(file => {
-                    const imgUrl = `${file.download_url}?v=26`;
+                    const imgUrl = `${file.download_url}?v=35`;
                     if (!hasSavedState) {
                         createImage(imgUrl);
                     }
@@ -522,11 +541,6 @@
             }
         }
 
-        folderSelect.addEventListener('change', (e) => {
-            localStorage.removeItem('tierListState');
-            loadOnlineFolder(e.target.value);
-        });
-
         resetBtn.addEventListener('click', () => {
             if (confirm("Are you sure you want to reset the board?")) {
                 localStorage.removeItem('tierListState');
@@ -534,7 +548,7 @@
                     selectedItem.classList.remove('selected-item');
                     selectedItem = null;
                 }
-                loadOnlineFolder(folderSelect.value);
+                loadOnlineFolder(currentFolder); 
             }
         });
 
@@ -545,7 +559,7 @@
             }
 
             const btn = document.getElementById('shareBtn');
-            btn.innerText = 'Processing...';
+            btn.innerText = '生成中...';
             btn.disabled = true;
             try {
                 const canvas = await html2canvas(document.getElementById('captureArea'), { backgroundColor: '#f0f2f5', scale: 2, useCORS: true });
@@ -559,19 +573,19 @@
                         link.href = URL.createObjectURL(blob);
                         link.click();
                     }
-                    btn.innerText = '📸 分享截图';
+                    btn.innerText = '分享';
                     btn.disabled = false;
                 }, 'image/png');
             } catch (e) {
                 alert("Screenshot failed");
-                btn.innerText = '📸 分享截图';
+                btn.innerText = '分享';
                 btn.disabled = false;
             }
         });
 
         window.onload = () => { 
             if (window.location.protocol.startsWith('http')) {
-                loadOnlineFolder(folderSelect.value); 
+                loadOnlineFolder(currentFolder); 
             } else {
                 pool.innerHTML = '<div style="color: #666; font-weight: bold; padding: 10px;">⚠️ Please view this via GitHub Pages (HTTP) to load images.</div>';
             }
