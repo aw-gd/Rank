@@ -113,8 +113,6 @@
             background-color: #cfcfcf; 
             min-height: 50px;
             transition: background-color 0.2s;
-            /* 增加一点内边距方便点击空栏位 */
-            min-height: 50px;
         }
 
         /* Image pool */
@@ -233,7 +231,7 @@
         let draggedItem = null;
         let selectedItem = null; 
 
-        // 🚨 修复手机端点击判定的核心变量 🚨
+        // 手机端触摸判定变量
         let touchStartX = 0;
         let touchStartY = 0;
         let isTouchMoved = false;
@@ -315,18 +313,16 @@
                 saveState(); 
             });
 
-            // 🚨 手机端触摸事件重构 🚨
+            // 手机端触摸事件
             item.addEventListener('touchstart', (e) => {
                 touchStartX = e.touches[0].clientX;
                 touchStartY = e.touches[0].clientY;
-                isTouchMoved = false; // 每次按下重置移动状态
+                isTouchMoved = false; 
                 
                 draggedItem = item;
-                // 延迟添加拖动样式，防止和点击冲突
                 setTimeout(() => { 
                     if (!isTouchMoved) item.classList.add('is-dragging'); 
                 }, 100);
-                // 注意：这里不再使用 e.preventDefault()，否则会阻止点击事件
             }, { passive: true });
             
             item.addEventListener('touchmove', (e) => {
@@ -334,13 +330,12 @@
                 const moveX = Math.abs(touch.clientX - touchStartX);
                 const moveY = Math.abs(touch.clientY - touchStartY);
                 
-                // 如果移动距离大于 10px，判定为拖动，并阻止页面滚动
                 if (moveX > 10 || moveY > 10) {
                     if (!isTouchMoved) {
                         isTouchMoved = true;
                         item.classList.add('is-dragging');
                     }
-                    e.preventDefault(); // 只有真正开始拖动时才阻止滚动
+                    e.preventDefault(); 
                     
                     const targetZone = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.tier-dropzone, .pool-container');
                     
@@ -364,10 +359,10 @@
             }, { passive: false });
             
             item.addEventListener('touchend', (e) => {
+                // 🚨 修复：无论是否移动，都在抬起手指时清除半透明状态 🚨
                 item.classList.remove('is-dragging');
                 dropzones.forEach(z => z.classList.remove('drag-over-zone'));
                 
-                // 如果没有移动，则视为点击，由 click 事件处理
                 if (!isTouchMoved) {
                     draggedItem = null;
                     return; 
@@ -377,7 +372,6 @@
                 draggedItem = null;
             });
 
-            // 统一的点击事件（电脑和手机端共用）
             item.addEventListener('click', (e) => {
                 e.stopPropagation(); 
                 if (selectedItem === item) {
@@ -423,7 +417,6 @@
                 }
             });
 
-            // 点击空栏位移动图片
             zone.addEventListener('click', () => {
                 if (selectedItem) {
                     zone.appendChild(selectedItem);
@@ -559,7 +552,7 @@
                 const hasSavedState = localStorage.getItem('tierListState') !== null;
 
                 validImages.forEach(file => {
-                    const imgUrl = `${file.download_url}?v=36`;
+                    const imgUrl = `${file.download_url}?v=37`;
                     if (!hasSavedState) {
                         createImage(imgUrl);
                     }
