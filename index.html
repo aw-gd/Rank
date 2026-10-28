@@ -113,6 +113,8 @@
             background-color: #cfcfcf; 
             min-height: 50px;
             transition: background-color 0.2s;
+            /* 增加一点内边距方便点击空栏位 */
+            min-height: 50px;
         }
 
         /* Image pool */
@@ -196,7 +198,6 @@
         <button class="toolbar-btn" data-folder="images2">王者荣耀法师英雄</button>
         <button class="toolbar-btn" data-folder="images1">皇室战争进攻卡牌</button>
         <button class="toolbar-btn" data-folder="images3">王者荣耀召唤师技能</button>
-        <!-- 和平精英枪械已被删除 -->
         <button class="toolbar-btn" data-folder="custom">自定义</button>
     </div>
 
@@ -231,6 +232,11 @@
         let currentFolder = "images6"; 
         let draggedItem = null;
         let selectedItem = null; 
+
+        // 🚨 修复手机端点击判定的核心变量 🚨
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let isTouchMoved = false;
 
         // 工具栏点击逻辑
         document.querySelectorAll('.toolbar-btn').forEach(btn => {
@@ -309,30 +315,49 @@
                 saveState(); 
             });
 
+            // 🚨 手机端触摸事件重构 🚨
             item.addEventListener('touchstart', (e) => {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                isTouchMoved = false; // 每次按下重置移动状态
+                
                 draggedItem = item;
-                setTimeout(() => { item.classList.add('is-dragging'); }, 50);
-                e.preventDefault();
-            }, { passive: false });
+                // 延迟添加拖动样式，防止和点击冲突
+                setTimeout(() => { 
+                    if (!isTouchMoved) item.classList.add('is-dragging'); 
+                }, 100);
+                // 注意：这里不再使用 e.preventDefault()，否则会阻止点击事件
+            }, { passive: true });
             
             item.addEventListener('touchmove', (e) => {
-                e.preventDefault();
                 const touch = e.touches[0];
-                const targetZone = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.tier-dropzone, .pool-container');
+                const moveX = Math.abs(touch.clientX - touchStartX);
+                const moveY = Math.abs(touch.clientY - touchStartY);
                 
-                dropzones.forEach(z => z.classList.remove('drag-over-zone'));
-
-                if (targetZone) {
-                    targetZone.classList.add('drag-over-zone');
-                    const afterElement = getDragAfterElement(targetZone, touch.clientX, touch.clientY);
+                // 如果移动距离大于 10px，判定为拖动，并阻止页面滚动
+                if (moveX > 10 || moveY > 10) {
+                    if (!isTouchMoved) {
+                        isTouchMoved = true;
+                        item.classList.add('is-dragging');
+                    }
+                    e.preventDefault(); // 只有真正开始拖动时才阻止滚动
                     
-                    if (afterElement == null) {
-                        if (targetZone.lastElementChild !== draggedItem) {
-                            targetZone.appendChild(draggedItem); 
-                        }
-                    } else {
-                        if (afterElement !== draggedItem) {
-                            targetZone.insertBefore(draggedItem, afterElement);
+                    const targetZone = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.tier-dropzone, .pool-container');
+                    
+                    dropzones.forEach(z => z.classList.remove('drag-over-zone'));
+
+                    if (targetZone) {
+                        targetZone.classList.add('drag-over-zone');
+                        const afterElement = getDragAfterElement(targetZone, touch.clientX, touch.clientY);
+                        
+                        if (afterElement == null) {
+                            if (targetZone.lastElementChild !== draggedItem) {
+                                targetZone.appendChild(draggedItem); 
+                            }
+                        } else {
+                            if (afterElement !== draggedItem) {
+                                targetZone.insertBefore(draggedItem, afterElement);
+                            }
                         }
                     }
                 }
@@ -341,10 +366,18 @@
             item.addEventListener('touchend', (e) => {
                 item.classList.remove('is-dragging');
                 dropzones.forEach(z => z.classList.remove('drag-over-zone'));
+                
+                // 如果没有移动，则视为点击，由 click 事件处理
+                if (!isTouchMoved) {
+                    draggedItem = null;
+                    return; 
+                }
+                
                 saveState();
                 draggedItem = null;
             });
 
+            // 统一的点击事件（电脑和手机端共用）
             item.addEventListener('click', (e) => {
                 e.stopPropagation(); 
                 if (selectedItem === item) {
@@ -390,6 +423,7 @@
                 }
             });
 
+            // 点击空栏位移动图片
             zone.addEventListener('click', () => {
                 if (selectedItem) {
                     zone.appendChild(selectedItem);
@@ -525,7 +559,7 @@
                 const hasSavedState = localStorage.getItem('tierListState') !== null;
 
                 validImages.forEach(file => {
-                    const imgUrl = `${file.download_url}?v=35`;
+                    const imgUrl = `${file.download_url}?v=36`;
                     if (!hasSavedState) {
                         createImage(imgUrl);
                     }
